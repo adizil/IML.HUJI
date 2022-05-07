@@ -2,6 +2,8 @@ from typing import NoReturn
 from ...base import BaseEstimator
 import numpy as np
 from numpy.linalg import det, inv
+import scipy.stats
+from IMLearn.metrics import loss_functions
 
 
 class LDA(BaseEstimator):
@@ -46,7 +48,29 @@ class LDA(BaseEstimator):
         y : ndarray of shape (n_samples, )
             Responses of input data to fit to
         """
-        raise NotImplementedError()
+        self.mu_ = np.array([])
+        self.pi_ = np.array([])
+        self.classes_ = np.unique(y)
+        self.cov_ = np.zeros([X.shape[1],X.shape[1]])
+        for clas in self.classes_:
+            x_class = np.array([])
+            for i in range(len(X)):
+                if (y[i] == clas):
+                    if (len(x_class) == 0):
+                        x_class = np.append(x_class, X[i])
+                    else:
+                        x_class = np.vstack([x_class, X[i]])
+            self.pi_ = np.append(self.pi_, len(x_class)/ len(y))
+            x_mu = x_class.mean(axis=0)
+            if (len(self.mu_)==0) :
+                self.mu_ = np.append(self.mu_ , x_mu)
+            else:
+                self.mu_ = np.vstack([self.mu_,x_mu ])
+            for x in x_class:
+                self.cov_ += np.outer(x-x_mu,x-x_mu)
+        self.cov_ = self.cov_ / (len(y)-len(self.classes_))
+        self._cov_inv = inv(self.cov_)
+
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -62,8 +86,17 @@ class LDA(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
-        raise NotImplementedError()
+        likelihood = self.likelihood(X)
+        responses = np.array([])
+        for arg in likelihood :
+            responses = np.append ( responses, np.argmax(arg))
+        return responses
 
+    def calc_like_pdf(self,k,x,X):
+        first = 1 / np.sqrt(
+            ((2 * np.pi) ** X.shape[1]) * np.linalg.det(self.cov_))
+        second = ((x - self.mu_[k]).T @ np.linalg.inv(self.cov_) @ (x - self.mu_[k]))
+        return first * np.exp(-0.5 * second) * self.pi_[k]
     def likelihood(self, X: np.ndarray) -> np.ndarray:
         """
         Calculate the likelihood of a given data over the estimated model
@@ -82,7 +115,18 @@ class LDA(BaseEstimator):
         if not self.fitted_:
             raise ValueError("Estimator must first be fitted before calling `likelihood` function")
 
-        raise NotImplementedError()
+        likelihoods=np.array([])
+        for x in X:
+            x_likelihood = np.array([])
+            for ind_k in range(len(self.classes_)):
+                k = int(self.classes_[ind_k])
+                x_likelihood = np.append(x_likelihood,self.calc_like_pdf(k, x, X))
+            if len(likelihoods) == 0:
+                likelihoods = x_likelihood
+            else:
+                likelihoods = np.vstack([likelihoods, x_likelihood])
+        return likelihoods
+
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -101,4 +145,4 @@ class LDA(BaseEstimator):
         loss : float
             Performance under missclassification loss function
         """
-        raise NotImplementedError()
+        return loss_functions.misclassification_error(y,self.predict(X))
