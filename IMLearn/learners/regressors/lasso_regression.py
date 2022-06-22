@@ -3,6 +3,8 @@ from typing import NoReturn
 from ...base import BaseEstimator, BaseModule
 from ...desent_methods.gradient_descent import GradientDescent
 import numpy as np
+from sklearn import linear_model
+from IMLearn.metrics.loss_functions import mean_square_error
 
 
 class LassoObjective(BaseModule):
@@ -61,6 +63,7 @@ class LassoRegression(BaseEstimator):
         self.optimizer_ = optimizer
         self._objective = None
         self.coefs_ = None
+        self.lasso_ = None
 
     def _fit(self, X: np.ndarray, y: np.ndarray) -> NoReturn:
         """
@@ -79,6 +82,11 @@ class LassoRegression(BaseEstimator):
         Fits model using specified `self.optimizer_` passed when instantiating class and includes an intercept
         if specified by `self.include_intercept_
         """
+        """
+        self.lasso_ = linear_model.Lasso(self.lam_,fit_intercept=self.include_intercept_)
+        self.lasso_.fit(X,y)
+        self.coefs_ = self.lasso_.coef_
+        """
         raise NotImplementedError()
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
@@ -95,6 +103,7 @@ class LassoRegression(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
+       # return self.lasso_.prefict(X)
         raise NotImplementedError()
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
@@ -113,5 +122,11 @@ class LassoRegression(BaseEstimator):
         -------
         loss : float
             Performance under MSE loss function
+        """
+
+        """
+        y_pred = self._predict(X)
+        mse = mean_square_error(y, y_pred)
+        return mse + (self.lam_* (np.linalg.norm (self.coefs_, ord=1)))
         """
         raise NotImplementedError()
